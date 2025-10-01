@@ -355,13 +355,8 @@ Now that you have seen how to use mutate, filtering and dates, give me three que
 
 **Answer**
 
-1.  
-How many repeat people are on the expenditures, as in how many times a single person shows up and how much they have contributed each time. 
+1.  How many repeat people are on the expenditures, as in how many times a single person shows up and how much they have contributed each time.
 
+2.  You could use the mutate and group by functions to make a list of how many people paid.For instance, how many are paid by checks or debit cards?
 
-2.  
-You could use the mutate and group by functions to make a list of how many people paid.For instance, how many are paid by checks or debit cards?
-
-
-3.  
-You could use the group by and the date and mutate and summerize functions to find out what terms had the the largest average class size.
+3.  You could use the group by and the date and mutate and summerize functions to find out what terms had the the largest average class size.
