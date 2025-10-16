@@ -86,5 +86,10 @@ umd_courses |>
 **Q5** Take one of the questions you listed in the final question of the pre_lab and try to answer it here in code. If you don't know how to fully answer it, write what code you can and describe in words what else you would need to do. If you got an answer, is it interesting? **A5**
 
 ```{r}
+umd_courses |>
+  filter(#how do i put general ed here? ) |>
+  group_by(name) |>
+  summarise(times_offered = n()) |>
+  arrange(desc(times_offered))
 
 ```
