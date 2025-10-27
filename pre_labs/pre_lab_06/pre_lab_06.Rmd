@@ -44,6 +44,7 @@ county_voters_2016 <- read_csv("data/county_voters_2016.csv") |> clean_names()
 county_voters_2018 <- read_csv("data/county_voters_2018.csv") |> clean_names()
 county_voters_2020 <- read_csv("data/county_voters_2020.csv") |> clean_names()
 county_voters_2022 <- read_csv("data/county_voters_2022.csv") |> clean_names()
+
 ```
 
 All of these datasets have the same number of columns, all with the same names, so if we want to merge them together to compare them over time, we need to stack them together. The verb here, in R, is bind_rows. You tell the function what you want to combine and it does it, assuming that you’ve got column names in common containing identically formatted data.
