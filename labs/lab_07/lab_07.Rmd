@@ -1,0 +1,223 @@
+---
+title: "lab_07"
+author: "Derek Willis"
+date: "2025-01-16"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## You will need
+
+-   A Census API key
+
+## Load libraries and establish settings
+
+You'll need to load two packages for this: the tidyverse and tidycensus.
+
+**Task** load these two packages
+
+```{r}
+# Turn off scientific notation
+options(scipen=999)
+
+# Load the tidyverse.
+library(tidyverse)
+library(tidycensus)
+library(lubridate)
+library(janitor)
+
+```
+
+## Setup Census API
+
+You'll need your Census API Key:
+
+**Task** set your API Key if you haven't already. You won't need to install or overwrite it.
+
+```{r echo=FALSE}
+
+```
+
+## Load and view ACS variables
+
+You'll also need to load the list of American Community Survey variables from the 2023 5-year estimates so you can identify the codes you need:
+
+**Task** load the variables from the 2021 5-year ACS (which is called "acs5") and save them to a dataframe
+
+```{r}
+variables <- load_variables(2021, "acs5", cache = TRUE)
+variables2019 <-load_variables(2019, "acs5", cache = TRUE)
+
+
+```
+
+## Answer questions
+
+**Q1** What is the Maryland jurisdiction with the lowest median age, according to the ACS 2023 5-year estimates? You will need to find the variable for median age first. **A1**
+
+BALTIMORE !!!
+
+```{r}
+md_age <- get_acs(geography = "county",
+                  variables= c(medianage = "B01002_001"),
+                 state = "MD",
+                  year = 2023)
+
+md_age|> filter(estimate <=50) |> arrange(desc(estimate))
+```
+
+**Q2** Which Maryland counties have a median age of at least 50? You can use the dataframe you just made to answer this, but you must write code to display only those counties with a median age of at least 50. **A2**
+
+Talbot and Worcester county
+
+```{r}
+
+md_age|> filter(estimate >=50) |> arrange(desc(estimate))
+```
+
+**Q3** We're interested in knowing more about Montgomery County zip codes where overdose calls are coming from and the demographic characteristics they possess. In particular, we want to calculate a rate of calls per 1,000 population. To do this, you'll need to:
+
+1.  Load the Montgomery County 911 overdose calls data.
+2.  Create a new dataframe with the total number of calls for each zip code.
+3.  Find the ACS variable pertaining to the total 18 and up population (there are several choices here; you want the simplest one).
+4.  Get from the ACS data from all Maryland zip codes using that variable - you will need to specify an earlier year to get the data.
+5.  Join the ACS data to the Montgomery County zip code totals dataframe and rename the estimate column to a meaningful name you've given the ACS variable.
+6.  Add a column to the joined dataframe that calculates a rate of calls per 1,000 population.
+
+Which zip code has the highest rate of calls? Which has the lowest?
+
+step 2:
+20874 has the highest
+and 
+20707, 20833, 20861, 20889, 21794 have the lowest
+
+
+
+**A3**
+
+```{r}
+#variables2019 |> group_by(geography)|> summarize(n())
+
+
+#Step 1
+moco_od <-read_csv("~/Desktop/JOUR-472-772-Assignments-CASSETT 2/labs/lab_07/data/montgomery_2022_overdoses.csv") |>clean_names() |> mutate(zip = as.character(zip))
+
+#Step 2
+moco_od_calls_per_county <- moco_od|> group_by(zip) |>
+summarize(
+  (total_calls = n())
+  )
+
+#Step 3 and Step 4
+md_18_up_pop <-get_acs(geography = "zcta",
+                       variables = c(md_18_up_pop = "B01002_001"),
+                       state = "MD",
+                       year= 2019)
+
+#Step 5 with chat gpt assist
+
+moco_od_calls_per_zip <- moco_od %>%
+  group_by(zip) %>%
+  summarize(total_calls = n())
+
+
+
+
+#Step 6 with chat gpt assist
+moco_od_zip_stats <- moco_od_zip_stats %>%
+  mutate(calls_per_1000 = (total_calls / total_pop) * 1000)
+
+
+
+```
+
+**Q4** Using [CensusReporter.org](https://censusreporter.org/), examine the zip codes with the highest and lowest rates and compare and contrast their demographic profiles. Is there a story here?
+
+**A4**
+
+
+```{r}
+# Chap gpt assist but i understand the code. I'm taking a few of the zip codes with the highest and lowest rates here
+target_zips <- c("20874", "20707", "20833", "20861", "20889", "21794")
+
+#here i'm assginging the values to their "signal flag" or their series of characters that correlate to that certain statistic 
+
+vars <- c(
+  total_pop = "B01001_001",
+  median_income = "B19013_001",
+  median_age = "B01002_001",
+  white = "B02001_002",
+  black = "B02001_003",
+  asian = "B02001_005",
+  hispanic = "B03003_003"
+)
+
+#this one lost me a little bit. but Im prettu sure that this just turns whatever the number is into a percent
+zip_demo <- get_acs(geography = "zcta", variables = vars, 
+                    year = 2021, survey = "acs5") %>%
+  filter(GEOID %in% target_zips) %>%
+  select(zip = GEOID, variable, estimate) %>%
+  pivot_wider(names_from = variable, values_from = estimate) %>%
+  mutate(
+    pct_white = 100 * white / total_pop,
+    pct_black = 100 * black / total_pop,
+    pct_asian = 100 * asian / total_pop,
+    pct_hispanic = 100 * hispanic / total_pop
+  ) %>%
+  select(zip, total_pop, median_income, median_age,
+         pct_white, pct_black, pct_asian, pct_hispanic)
+
+print(zip_demo)
+
+#it looks like tthe story here centers around the fact that the really young people are focused in a rural area, but not even the one with the least income. It should be noticed that the area with the highest percentage of african americans has the lowest income and the lowest number of whites which might make it presumable that there is some issue with the system and opportunites to create wealth in majority black areas.
+
+```
+
+
+**Q5** Go back to your joined dataframe from Q3 and add two more columns representing the minimum and maximum populations based on the estimate and margin of error, then calculate per capita rates for each. Do you get the same two zip codes for the highest and lowest as you did before? Does that give you more or less confidence in your answers to Q3?
+
+**A5**
+
+```{r}
+
+#could not figure this out for the life of me this made me go insane. Not exactly sure why this works or even what its doing. Need assistance understanding this. I do not have any confidence in my answers. I know that the zip code 20707 pops up alot down there for the lwoest mid, min, and lowest max.
+
+md_total_pop_moe <- get_acs(
+  geography = "zcta",
+  variables = c(total_pop = "B01001_001"),
+  state = "MD",
+  year = 2019
+) %>%
+  select(GEOID, estimate, moe)
+
+moco_od_zip_stats <- moco_od_calls_per_zip %>%
+  left_join(md_total_pop_moe, by = c("zip" = "GEOID")) %>%
+  rename(total_pop = estimate, total_pop_moe = moe)
+
+moco_od_zip_stats <- moco_od_zip_stats %>%
+  mutate(
+    min_pop = pmax(total_pop - total_pop_moe, 1),  # population can't be <1
+    max_pop = total_pop + total_pop_moe,
+    calls_per_1000_min = (total_calls / max_pop) * 1000,
+    calls_per_1000_max = (total_calls / min_pop) * 1000,
+    calls_per_1000_mid = (total_calls / total_pop) * 1000
+  )
+
+highest_mid <- moco_od_zip_stats %>% filter(!is.na(calls_per_1000_mid)) %>% arrange(desc(calls_per_1000_mid)) %>% slice(1)
+lowest_mid  <- moco_od_zip_stats %>% filter(!is.na(calls_per_1000_mid), calls_per_1000_mid > 0) %>% arrange(calls_per_1000_mid) %>% slice(1)
+highest_min <- moco_od_zip_stats %>% filter(!is.na(calls_per_1000_min)) %>% arrange(desc(calls_per_1000_min)) %>% slice(1)
+lowest_min  <- moco_od_zip_stats %>% filter(!is.na(calls_per_1000_min), calls_per_1000_min > 0) %>% arrange(calls_per_1000_min) %>% slice(1)
+highest_max <- moco_od_zip_stats %>% filter(!is.na(calls_per_1000_max)) %>% arrange(desc(calls_per_1000_max)) %>% slice(1)
+lowest_max  <- moco_od_zip_stats %>% filter(!is.na(calls_per_1000_max), calls_per_1000_max > 0) %>% arrange(calls_per_1000_max) %>% slice(1)
+
+print(highest_mid)
+print(lowest_mid)
+print(highest_min)
+print(lowest_min)
+print(highest_max)
+print(lowest_max)
+
+```
