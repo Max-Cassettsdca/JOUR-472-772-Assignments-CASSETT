@@ -18,6 +18,8 @@ library(tidyverse)
 library(tidycensus)
 library(lubridate)
 library(janitor)
+install.packages("ggrepel")
+library(ggrepel)
 ```
 
 ## Load and modify data
@@ -27,7 +29,7 @@ library(janitor)
 -   Prince George's County 911 Overdose Calls
 
 ```{r}
-pg_calls <- read_csv("~/Desktop/JOUR-472-772-Assignments-CASSETT/JOUR-472-772-Assignments-CASSETT 2/labs/lab_08/data/prince_georges_2022_overdoses.csv") |> clean_names()
+pg_calls <- read_csv("~/Desktop/JOUR-472-772-Assignments-CASSETT/labs/lab_08/data/prince_georges_2022_overdoses.csv") |> clean_names()
 
 pg_calls <- pg_calls |>mutate( date= date(datetime),
                                week= week(datetime),
@@ -82,6 +84,23 @@ Describe the pattern of results; you may want to look at the data to dig into pa
 **A2.**
 
 ```{r}
+#had to get some assistance form AI on this one. Taking the information from pg_calls and putting it into the per week dataset and grouping the information per week and ranking it by number of calls.Then we made a whole new graph that shows us the 
+
+pg_calls_per_week <- pg_calls |> 
+  group_by(week) |> 
+  summarize(total_calls = n())
+
+pg_calls_per_week |> 
+  ggplot(aes(x = week, y = total_calls)) +
+  geom_line(color = "red", size = 1.2) +
+  geom_point(color = "blue") +
+  labs(
+    title = "Weekly Trends in Overdose 911 Calls, Prince George's County (2022)",
+    x = "Week of Year",
+    y = "Total Calls",
+    caption = "Source: Prince George's County EMS"
+  ) +
+  theme_minimal()
 ```
 
 **Q3.** A scatterplot is a type of chart that helps us see relationships between two variables. One variable goes on the x axis, the other on the y axis. For each row/observation in our data, a scatterplot puts a circle (or a "point") where the two variables intersect on a grid.
@@ -110,11 +129,64 @@ To answer this question, do the following:
 
 ```{r}
 
-medium_income_zip <- get_acs( geography = 'zcta',
-  variable='B19013_001',
-  state= 'MD',
-  year=2019
-)
+#Once again using AI to help me understand what I'm doing. I had a lot written for this final question but it wasn't saved so I took the liberty of figuring this one out online. I'm not entirely sure what the filter is 
+
+pg_calls_zip <- pg_calls |> 
+  filter(!is.na(zipcode)) |>         
+  group_by(zipcode) |>               
+  summarize(total_calls = n())
+
+
+#this is me getting the median income data and for the year 2019 by finding the associated variable and getting it all from the census data. 
+
+md_income <- get_acs(
+  geography = "zcta",
+  variable = "B19013_001",
+  state = "MD",
+  year = 2019
+) |> 
+  rename(median_income = estimate, zip_code = GEOID)
+
+#this connects the zip code to the median income of each code.
+
+pg_calls_zip <- pg_calls_zip |> 
+  mutate(zip_code = as.character(zipcode))
+md_income    <- md_income |> 
+  mutate(zip_code = as.character(zip_code))
+
+
+#this joins the zip code data set with the income data set.
+
+calls_income <- pg_calls_zip |> 
+  left_join(md_income, by = "zip_code")
+
+
+#they had me add ggrepel to this and honestly im not sure if i couldve figured this out on my own without AI so i'm going with it. The structure of the ggplot is pretty self explanatory as long as your know where everything goes.
+
+library(ggrepel)
+
+calls_income |> 
+  ggplot(aes(x = median_income, y = total_calls, label = zip_code)) +
+  geom_point(color = "blue", size = 2) +
+  geom_text_repel(size = 2, max.overlaps = 5) +
+  labs(
+    title = "Overdose 911 Calls vs. Median Household Income by ZIP Code (Prince George's County, 2022)",
+    x = "Median Household Income ($)",
+    y = "Number of Overdose 911 Calls",
+    caption = "Sources: Prince George's County EMS, U.S. Census Bureau"
+  ) +
+  theme_minimal()
+
+
+
+
+
+
+#medium_income_zip <- get_acs( geography = 'zcta',
+#  variable='B19013_001',
+#  state= 'MD',
+#  year=2019
+#)
 
 #then combine to 911 by zip code then creat a chart.
 ```
