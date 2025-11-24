@@ -1,0 +1,192 @@
+---
+title: "lab_04_ai"
+author: "Daniel Trielli"
+date: "2024-09-26"
+output: html_document
+---
+
+## Setup
+
+Let's load the necessary libraries and, using your API key, setup your credentials:
+
+```{r}
+library(axolotr)
+create_credentials(GROQ_API_KEY = "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 
+")
+```
+
+See that "Please restart your R session for changes to take effect."? Go ahead and do that; you'll need to rerun the `library()` function for axolotr, and let's load tidyverse while we're at it.\
+
+```{r}
+library(axolotr)
+library(tidyverse)
+```
+
+## Testing
+
+Let's make sure that worked. We'll be using the [Llama 3.1 model released by Meta](https://ai.meta.com/blog/meta-llama-3-1/).
+
+```{r}
+groq_response <- axolotr::ask(
+  prompt = "Give me a 100-word pitch for a new Lilo and Stitch sequel",
+  model = "llama-3.1-8b-instant"
+)
+
+groq_response
+```
+
+Did that work?
+
+## Q1. Turning unstructured information into data: let's take [this article](https://www.nytimes.com/2024/09/27/arts/maggie-smith-dead.html) about the death of Dame Maggie Smith and try to extract information from it. Your goal is to have Groq create a table with the films and TV shows mentioned in this news article, and extract the following information about them: title, year, role, director, co-stars, and awards. From the table that it created, answer this: is the information correct? Did all information come from the article text?
+
+```{r}
+#Loading article text
+text = "Maggie Smith, one of the finest British stage and screen actors of her generation, whose award-winning roles ranged from a freethinking Scottish schoolteacher in /“The Prime of Miss Jean Brodie/” to the acid-tongued dowager countess on /“Downton Abbey,/” died on Friday in London. She was 89.
+
+Her death, in a hospital, was announced by her family in a statement issued by a publicist. The statement gave no cause of death.
+
+American moviegoers barely knew Ms. Smith (now Dame Maggie to her countrymen) when she starred in /“The Prime of Miss Jean Brodie/” (1969), about a 1930s girls’-school teacher who dared to have progressive social views — and a love life. Vincent Canby’s review in The New York Times described her performance as /“a staggering amalgam of counterpointed moods, switches in voice levels and obliquely stated emotions, all of which are precisely right./” It brought her the Academy Award for best actress.
+
+She won a second Oscar, for best supporting actress, for /“California Suite/” (1978), based on Neil Simon’s stage comedy. Her character, a British actress attending the Oscars with her bisexual husband (Michael Caine), has a disappointing evening at the ceremony and a bittersweet night in bed.
+
+In real life, prizes had begun coming Ms. Smith’s way in the 1950s, when at 20 she won her first Evening Standard Award. By the turn of the millennium, she had the two Oscars, two Tonys, two Golden Globes, half a dozen Baftas (British Academy of Film and Television Awards) and scores of nominations. Yet she could go almost anywhere unrecognized.
+
+Until /“Downton Abbey./”
+
+That series followed the Earl of Grantham (Hugh Bonneville), his mostly aristocratic family and his troubled household staff at their grand Jacobean mansion as the world around them, between 1912 and 1925, refused to stand still.
+
+After its 2010 British premiere and its 2011 American debut, the show ran six seasons. Its breakout star, from the beginning, was Ms. Smith, playing Lord Grantham’s elderly and still stubbornly Victorian widowed mother, Violet Crawley, the dowager countess. She disapproved of electric lights, was unfamiliar with the word /“weekend/” and never met a person or situation she couldn’t ridicule with withering imperiousness. When her daughter-in-law considered sending a younger relative for a stay in New York, Lady Violet objected: /“Oh, I don’t think things are quite that desperate./”
+
+Suddenly, in her mid-70s, Ms. Smith was a megastar.
+
+/“It’s ridiculous. I’d led a perfectly normal life until ‘Downton Abbey,’ /” she told Mark Lawson at the B.F.I. and Radio Times Festival in 2017, adding later: /“Nobody knew who the hell I was./”
+
+The closest Ms. Smith had come to such visibility was with the Harry Potter movies. She was Minerva McGonagall, the Hogwarts School’s stern but fearless transformation teacher, in seven of the eight films, from /“Harry Potter: The Sorceror’s Stone/” (2001) to /“Harry Potter: The Deathly Hallows Part 2/” (2011).
+
+McGonagall, wearing high-necked Victorian-style gowns, a distinctive Scottish brooch, and upswept hair beneath a tall, black witch’s hat, was a striking onscreen presence. Yet Ms. Smith did not find herself constantly pursued in public, except by children.
+
+/“A lot of very small people kind of used to say hello to me, and that was nice,/” she recalled on /“The Graham Norton Show/” in 2015. One boy carefully asked her, /“Were you really a cat?/”)"
+```
+
+```{r}
+#Add code below to talk to Groq and display its response
+
+answer_1 <- axolotr::ask(
+  prompt = paste("create a table with the films and TV shows mentioned in this news article, and extract the following information about them: title, year, role, director, co-stars, and awards.", text),
+  model = "llama-3.1-8b-instant")
+  
+print(answer_1)
+
+```
+
+**Answer:**
+
+------------------------------------------------------------------------
+
+## Q2. Helping with code explanation: Your data journalism instructor has given you a block of code but you can't make sense of it. Ask Groq if it can explain what the code does with this UMD course. Is the answer correct?
+
+```{r}
+# Loading R code example
+r_code_example = 'umd_courses |>
+  filter(str_detect(title, "Climate") & seats > 0) |>
+  group_by(department) |>
+  summarize(classes = n()) |>
+  arrange(desc(classes))'
+```
+
+```{r}
+#Add code below to talk to Groq and display its response
+
+answer_2 <- axolotr::ask(
+  prompt = paste("Explain the code attached to the following variable and why it may or may not work.", r_code_example),
+  model = "llama-3.1-8b-instant")
+  
+print(answer_2)
+```
+
+**Answer:**
+
+------------------------------------------------------------------------
+
+## Q3. Helping with code debugging: paste the code block of an answer you had for a previous lab down here and ask Grok if that code is correct, based on the question in the lab. What do you think about its response?
+
+```{r}
+#Loading lab question
+lab_question = 'Using case_when(), create a column in the Maryland expenses data called spending_location indicating whether each record indicated money spent in Maryland or outside Maryland, based on the address column of the \'maryland_expenses\' dataset. For records that are in Maryland, make the new column\'s value \"In-state\" and for the others, make it \"Out of state\". Then write code that shows the total amount of money spent in each category and describe the results. You can do this in one statement or break it up into two statements (saving the new column to your dataframe).'
+
+
+#Paste the code block here, between the quotes. If your code has quotes or single quotes, you have to add a \ before each one so R doesn't break.
+
+your_r_code_lab = 
+"
+maryland_expenses_with_location <- maryland_expenses |>
+  mutate(
+    spending_location = case_when(
+      str_detect(\"California"\, regex(\"^MD$"\, ignore_case = TRUE)) ~ \"In-state"\,
+      TRUE ~ \"Out of state"\
+    )
+  )
+
+"
+
+
+```
+
+```{r}
+#Add code below to talk to Groq and display its response
+
+```
+
+**Answer:**
+
+------------------------------------------------------------------------
+
+## Q4. Brainstorming about strategies for data analysis and visualization: ask Groq to give you ideas about potential news stories from data analyses using [this data set](https://data.montgomerycountymd.gov/Public-Safety/Crash-Reporting-Incidents-Data/bhju-22kf/about_data). You're going to have to describe the dataset so that Groq can make some suggestions. What do you think of its response?
+
+```{r}
+#Add code below to talk to Groq and display its response
+
+crashdata <- "https://data.montgomerycountymd.gov/Public-Safety/Crash-Reporting-Incidents-Data/bhju-22kf/about_data"
+
+crashdataset_description <- "The Montgomery County Crash Reporting Incidents dataset includes detailed records for each reported crash: location, date and time, vehicle type, contributing factors (e.g. speeding, distraction), driver and victim demographics, severity (injury/fatality), and involved road conditions."
+
+# Brainstorming prompt for Groq
+groq_prompt <- paste(
+  "Suggest several ideas for news stories and data visualizations a journalist could produce by analyzing this crash incident dataset for Montgomery County, Maryland. Mention specific questions to investigate and the columns to use."
+)
+
+# Call Groq for ideas
+brainstorm_response <- axolotr::ask(
+  prompt = paste(groq_prompt, crashdataset_description,crashdata),
+  model = "llama-3.1-8b-instant"
+)
+
+print(brainstorm_response)
+
+```
+
+**Answer:**
+
+------------------------------------------------------------------------
+
+## Q5. Using AI to write news articles: ask Groq to write a 500-word news article about a car crash at the intersection between Knox Road and Regents Drive. What issues or problems do you see with the output?
+
+```{r}
+#Add code below to talk to Groq and display its response
+
+crashdata <- "https://data.montgomerycountymd.gov/Public-Safety/Crash-Reporting-Incidents-Data/bhju-22kf/about_data"
+
+crashdataset_description <- "The Montgomery County Crash Reporting Incidents dataset includes detailed records for each reported crash: location, date and time, vehicle type, contributing factors (e.g. speeding, distraction), driver and victim demographics, severity (injury/fatality), and involved road conditions."
+
+
+brainstorm_response2 <- axolotr::ask(
+  prompt = paste("write a 500-word news article about a car crash at the intersection between Knox Road and Regents Drive.", crashdataset_description,crashdata),
+  model = "llama-3.1-8b-instant"
+)
+
+print(brainstorm_response2)
+```
+[1] "**HEADLINE:** Multi-Vehicle Crash at Knox Road and Regents Drive Leaves Several Injured\n\n**SUBHEADLINE:** Authorities Investigate Cause of Collision, Citing Speeding and Distraction as Contributing Factors\n\nROCKVILLE, MD - A chaotic scene unfolded at the intersection of Knox Road and Regents Drive in Rockville, Maryland, yesterday evening, when a multi-vehicle crash sent several individuals to the hospital with non-life-threatening injuries.\n\nAccording to the Montgomery County Crash Reporting Incidents dataset, the incident occurred at approximately 6:45 PM on a clear, dry evening. The dataset, which provides detailed records for each reported crash, indicates that the collision involved a total of four vehicles, including two passenger cars and two trucks.\n\nPreliminary investigations suggest that a speeding vehicle, traveling eastbound on Knox Road, failed to yield to oncoming traffic and collided with a truck traveling northbound on Regents Drive. The impact caused a chain reaction, resulting in a second collision between the speeding vehicle and a passenger car traveling westbound on Knox Road.\n\n\"It's a miracle no one was killed in this crash,\" said Montgomery County Police Department spokesperson, Lieutenant Paul Starks. \"However, our investigation has revealed that speeding and distraction were significant contributing factors to this incident.\"\n\nThe dataset reveals that the driver of the speeding vehicle, a 32-year-old male from Gaithersburg, was cited for reckless driving and failure to yield. The driver of the truck, a 45-year-old female from Rockville, was treated for minor injuries at the scene. Two passengers in the passenger car, a 28-year-old male and a 25-year-old female, both from Silver Spring, were transported to a local hospital for treatment of non-life-threatening injuries.\n\nThe intersection of Knox Road and Regents Drive is a high-traffic area, with an average daily volume of over 20,000 vehicles. While the exact cause of the crash is still under investigation, authorities are urging drivers to exercise caution and follow all traffic laws to prevent similar incidents in the future.\n\n\"We take all crashes seriously, and we're committed to identifying the root causes of these incidents,\" said Lieutenant Starks. \"We're working closely with local residents and businesses to improve safety measures at this intersection and throughout the county.\"\n\nThe Montgomery County Crash Reporting Incidents dataset provides valuable insights into the causes and consequences of crashes in the county. By analyzing this data, authorities can identify trends and patterns, and develop targeted strategies to reduce the risk of crashes and improve road safety.\n\nIn the meantime, drivers are reminded to remain vigilant and focused on the road, especially in high-traffic areas. By doing so, we can all play a role in preventing crashes like the one that occurred at Knox Road and Regents Drive.\n\n**SIDEBAR:**\n\n* Date and Time: October 12, 2023, 6:45 PM\n* Location: Intersection of Knox Road and Regents Drive, Rockville, MD\n* Vehicle Types: 2 passenger cars, 2 trucks\n* Contributing Factors: Speeding, distraction\n* Driver and Victim Demographics: 32-year-old male driver (speeding), 45-year-old female driver (truck), 28-year-old male passenger, 25-year-old female passenger\n* Severity: Non-life-threatening injuries\n* Involved Road Conditions: Dry, clear conditions"
+
+Obviously it looks like there is a lot of extra stuff within the actual text that inhibits smooth reading.
+**Answer:**
