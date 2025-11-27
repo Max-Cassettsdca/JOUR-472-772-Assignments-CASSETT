@@ -1,0 +1,221 @@
+---
+title: "lab_10"
+author: "Derek Willis"
+date: "2025-01-16"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## You will need
+
+-   Our usual libraries, plus some of the map-specific ones from the pre_lab. You'll also be fetching Census data in Q3. Read the questions carefully!
+
+## Load libraries and establish settings
+
+**Task** Create a codeblock and load appropriate packages and settings for this lab.
+
+```{r}
+# Load libraries
+library(tidyverse)
+library(sf)
+library(janitor)
+library(tigris)
+library(tidyverse)
+library(sf)
+library(janitor)
+library(tidycensus)
+Sys.getenv("CENSUS_API_KEY")
+census_api_key("d3ad537a059037401e6dcb95f1fa2e53187a2a80")
+```
+
+Let's explore Maryland elections, power outages and electric vehicle data and make some maps!
+
+## Questions
+
+**Q1.** Q1. In 2022, Maryland elected the state's first two African-American statewide office holders: Wes Moore as governor and Anthony Brown as attorney general. You want to compare the two's electoral performances. Using the `md_statewide_county.csv` file in the data folder, calculate the total number of votes for both the governor's race and the attorney general's race, then percentages for both Moore and Brown *based on the total of their respective contests*. Then calculate the difference between their percentages.
+
+Get the geometry for Maryland's counties using tigris and, joining that dataframe to your results dataframe, make a county-level map of the differences between Moore and Brown's percentages. What is the story here, and what is the county with the most interesting results?
+
+**A1.#**
+
+```{r}
+library(tidyverse)
+library(sf)
+library(janitor)
+library(tigris)
+library(tidyverse)
+library(sf)
+library(janitor)
+library(tidycensus)
+Sys.getenv("CENSUS_API_KEY")
+census_api_key("d3ad537a059037401e6dcb95f1fa2e53187a2a80")
+
+
+MD_Race_Votes <- read_csv("~/Desktop/JOUR-472-772-Assignments-CASSETT/labs/lab_10/data/md_statewide_county.csv") |> clean_names() |> 
+  mutate(
+    geoid = as.character(geoid),
+    total_votes_ag = peroutka + brown +ag_writein,
+    total_votes_gov = moore + cox + lashar + wallace + harding + sefcik + gov_writein,
+
+    moore_percent = (moore / total_votes_gov) * 100,
+    brown_percent = (brown / total_votes_ag) * 100,
+    moore_brown_diff = moore_percent - brown_percent
+  )
+
+
+counties <- counties()
+md_counties <- counties() |> filter(STATEFP == '24') |> clean_names()
+md_statewide_geometry <- md_counties |> left_join(MD_Race_Votes, by = "geoid")
+
+ggplot() +
+  geom_sf(data = md_statewide_geometry, aes(fill = moore_brown_diff)) +
+  theme_void() +
+  scale_fill_viridis_b(option = "rocket")
+
+#write_csv(md_statewide_geometry.csv)
+
+
+
+
+
+#total_votes_gov <- sum(MD_Race_Votes %>% select(Moore,Cox,Lashar,Wallace,Harding,Sefcik,GovWritein), na.rm = TRUE)
+#total_votes_ag <- sum(MD_Race_Votes %>% select(Peroutka,Brown,AgWritein), na.rm = TRUE)
+
+
+#Moore_percent <- Moore_votes / total_votes_gov * 100
+#Brown_percent <- Brown_votes / total_votes_ag * 100
+
+```
+
+**Q2.** Make a county-level map to explore the number of customers impacted by power outages in Maryland from last March. Load the `county_outages_march2023.csv` file in the data folder and calculate a rate of customers with outages per 10,000 total customers for each county. Then join that dataframe to your Maryland counties dataframe you made in Q1 and create a county-level map of the results; you may need to tweak the fill scale to make the distinctions clearer. What's the potential story here? Given access to other months' outage data, what would your next steps be in reporting a story?
+
+
+
+If the grapgh was done right and ought to be beleived then in the middle of maryland there is a way higher amount of outages than the rest of the state 
+
+
+
+**A2.**
+
+```{r}
+#I had to use Chat GPT again to figure this one out because it was a doosey but ill walk through the code so you know that i have a basic grasp of whats going one. It really helps in class if you go down the code line by line explaining what each formlula does 
+
+
+#this line calls the csv and cleans the names 
+county_outages <- read_csv("~/Desktop/JOUR-472-772-Assignments-CASSETT/labs/lab_10/data/county_outages_march2023.csv") 
+
+#this line mutates county outages to add a column to county outages and gets wide of the extra stuff appended to whatever the county name is
+county_outages <- county_outages |>
+  mutate(
+    outage_rate_10000 = (outage_customers / total_customers) * 10000,
+    county = str_to_lower(str_trim(str_replace(county, " county", "")))
+  )
+
+#this line pretty much does the same thing                                                                                                                                                                                              
+county_outages <- county_outages |>
+  mutate(county = str_to_lower(str_trim(str_replace(county, " County", ""))))
+md_counties <- md_counties |>
+  mutate(county = str_to_lower(str_trim(str_replace(namelsad, " County", ""))))
+
+
+#joins the two datasets
+md_statewide_outages <- md_counties |>
+  left_join(county_outages, by = "county")
+
+#plots the data sets
+ggplot() +
+  geom_sf(data = md_statewide_outages, aes(fill = outage_rate_10000)) +
+  theme_void() +
+  scale_fill_viridis_b(option = "plasma")
+
+
+```
+
+**Q3.** You've been assigned a story about the use of electric vehicles in Maryland and you want to make a map of the prevalence of electric vehicles in each county. Load the `ev_2020_2023.csv` file, which has the number of electric and hybrid vehicles per county from July 2020 and March 2023 and calculate a percentage change for each county (remember, that's `new-old/old`). Using the Maryland counties dataframe you made for Q1, make a county map showing the percentage change. What counties stand out to you? What questions do you have about the changes you're seeing?
+
+Next, use tidycensus to retrieve county population data for Maryland from 2021 (you did this in the pre_lab) and join it to your vehicles dataframe. HINT: you may not need to join it on the county name, and you should already have the geometry!
+
+Then, calculate a per capita rate of electric & hybrid vehicles using the March 2023 figure and the population estimate. You will need to choose the "per capita" value.
+
+Finally, make a second county map showing the per capita rate. What counties stand out on this map? How is it different from the first one you made?
+
+**A3.**
+
+```{r}
+#again had to consult the AI gods for this one. Lots of stes to it but I'm going to go through it with comments to explain where i was lost and what the code is doing.
+
+
+
+#makes it a dataset
+ev <- read_csv ("~/Desktop/JOUR-472-772-Assignments-CASSETT/labs/lab_10/data/ev_2020_2023.csv") |>
+  clean_names()
+
+#mutates the data set to have a percent change column for each county
+ev <- ev |>
+  mutate(
+    pct_change_ev = (march_2023 - july_2020) / july_2020
+  )
+
+
+# so the Maryland counties data is mutated to omit the word county and replace it with "nothing"
+md_counties <- md_counties |>
+  mutate(county = str_to_lower(str_trim(str_replace(namelsad, " County", ""))))
+
+# this one does the same thing to make sure that the two datasets are going to join seemlessly.
+ev <- ev |>
+  mutate(county = str_to_lower(str_trim(str_replace(county, " county", ""))))
+
+# this is them joining by county
+md_ev <- md_counties |>
+  left_join(ev, by = "county")
+
+#this was the part ive got to get used doing. I dont understand how to make this chart from just looking at it.
+ggplot(md_ev) +
+  geom_sf(aes(fill = pct_change_ev)) +
+  theme_void() +
+  scale_fill_viridis_b(option = "magma") +
+  labs(
+    title = "Percent change in EV & hybrid vehicles, 2020–2023",
+    fill = "Pct change"
+  )
+
+#im not quite sure what chat gpt did here. Like i sort of understand it but its definitely not stored in my memory bank.
+
+md_pop <- get_acs(
+  geography = "county",
+  state = "MD",
+  year = 2021,
+  survey = "acs5",
+  variables = "B01003_001",
+  geometry = FALSE
+) |>
+  clean_names() |>
+  rename(
+    geoid = geoid,
+    total_pop = estimate
+  ) |>
+  select(geoid, total_pop)
+
+
+#another joining part and creating a per 1000 column 
+md_ev_pop <- md_ev |>
+  left_join(md_pop, by = "geoid") |>
+  mutate(
+    ev_per_1000 = (march_2023 / total_pop) * 1000
+  )
+
+
+# I sort of get this map
+ggplot(md_ev_pop) +
+  geom_sf(aes(fill = ev_per_1000)) +
+  theme_void() +
+  scale_fill_viridis_b(option = "cividis") +
+  labs(
+    title = "EV & hybrid vehicles per 1,000 residents (March 2023)",
+    fill = "EVs per\n1,000 people"
+  )
+
+```
