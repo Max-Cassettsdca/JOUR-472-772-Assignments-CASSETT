@@ -23,27 +23,170 @@ library(tidytext)
 library(janitor)
 library(lubridate)
 library(rvest)
+library(readr)
 ```
 
 ## Questions
 
 **Q1.** You've been assigned to report a story about the leading reasons that Maryland attorneys get sanctioned by the state for misconduct. The state [publishes lists of sanctions](https://www.courts.state.md.us/attygrievance/sanctions) that contain a short text description about the situation. Load the CSV file in the data folder containing records from fiscal year 2011 onwards. Make a list of unique words from the text column, then following the example in the pre_lab, remove common "stop words" from that list and create a list of the top 10 words containing the percentage of occurrences each word represents. What's the leading word in that answer and, broadly, what do you think the top 10 words describe?
 
+
+
 **A1.**
 
 ```{r}
+
+sanctioned_lawyers <- read_csv(
+  "~/GitHub/JOUR-472-772-Assignments-CASSETT/labs/lab_12/data/md_attorney_sanctions.csv")
+
+sanctioned_lawyers <- sanctioned_lawyers |>
+  mutate(text = gsub("http.*","", text))
+
+a_list_of_words <- c("illegal", "sexual", "misconduct", "criminal", "harassment", "jail","contempt", "mistrial","perjury", "knowingly")
+unique(a_list_of_words)
+
+unique_words <- sanctioned_lawyers |> select(text) |>
+  unnest_tokens(word, text)
+View(unique_words)
+
+data("stop_words")
+
+stop_words <- stop_words |>
+  add_row(word = "respondent") |> 
+  add_row(word = "board") |> 
+  add_row(word = "panel") |>
+  add_row(word = "dr") |>
+  add_row(word = "maryland") |>
+  add_row(word = 'practice') |> 
+  add_row(word = '1') |> 
+  add_row(word = '2') |>
+  add_row(word = '3') |>
+  add_row(word = '14') |>
+  add_row(word = '4') |>
+  add_row(word = "5") |> 
+  add_row(word = "6") |> 
+  add_row(word = "7") |>
+  add_row(word = "8") |>
+  add_row(word = "9") |>
+  add_row(word = '10') |> 
+  add_row(word = 'in') |> 
+  add_row(word = 'an') |>
+  add_row(word = 'or') |>
+  add_row(word = '0') |>
+  add_row(word = 'by') |>
+  add_row(word = "for") |> 
+  add_row(word = "to") |> 
+  add_row(word = "that") |>
+  add_row(word = "the") |>
+  add_row(word = "can") |>
+  add_row(word = 'cant') |> 
+  add_row(word = 'who') |> 
+  add_row(word = 'them') |>
+  add_row(word = 'they') |>
+  add_row(word = 'her') |>
+  add_row(word = 'his') |>
+  add_row(word = "of") |> 
+  add_row(word = "off") |> 
+  add_row(word = "is") |>
+  add_row(word = "isnt") |>
+  add_row(word = "are") |>
+  add_row(word = 'it') |> 
+  add_row(word = 'and') |> 
+  add_row(word = 'into') |>
+  add_row(word = 'by') |>
+  add_row(word = 'with') |>
+  add_row(word = 'a')
+
+#this last line I had to consult AI for but I had something going from the pre-lab before this, just a little confused as to how to get the code for the top ten
+
+top10_words <- unique_words |>
+  anti_join(stop_words, by = "word") |>
+  count(word, sort = TRUE) |>
+  mutate(percent = n / sum(n) * 100) |>
+  slice_max(n, n = 10)
+
+top10_words
+
+#so obviuosly my top ten pick was not in the top ten, brutal.
 ```
+so obviously my top ten pick was not in the top ten, brutal. the following are the top words failing, client, attorney, trust, conduct, account, funds, clients,failed, consent
+
 
 **Q2.** Let's move beyond single words to phrases. Make a list of the top 10 three-word phrases, called trigrams, based on the example from the pre_lab (you'll need to modify the example code to do this). What's the top trigram and how often does it appear? What does that phrase mean in legal terms?
+
+
 
 **A2.**
 
 ```{r}
+
+data("stop_words")
+
+trigrams <- sanctioned_lawyers |>
+  unnest_tokens(trigram, text, token = "ngrams", n = 3) |>
+  separate(trigram, c("word1", "word2", "word3"), sep = " ") |>
+  filter(!word1 %in% stop_words$word) |>
+  filter(!word2 %in% stop_words$word) |>
+  filter(!word3 %in% stop_words$word) |>
+  mutate(trigram = paste(word1, word2, word3, sep = " ")) |>
+  group_by(trigram) |>
+  tally(sort=TRUE) |>
+  mutate(percent = (n/sum(n))*100) 
+  
+
+top10_trigrams <- trigrams |>
+  mutate(percent = n / sum(n) * 100) |>
+  slice_max(n, n = 10)
+
+top10_trigrams
+
 ```
+
+
+It looks like it has to do a lot with dishonesty and fraud and collecting money unreasonably.
+
+modifyed version of;
+alerts |>
+  filter(date >= '2024-01-01') |>
+  unnest_tokens(bigram, text, token = "ngrams", n = 2) |>
+  separate(bigram, c("word1", "word2"), sep = " ") |>
+  filter(!word1 %in% stop_words$word) |>
+  filter(!word2 %in% stop_words$word) |>
+  mutate(bigram = paste(word1, word2, sep=" ")) |>
+  group_by(bigram) |>
+  tally(sort=TRUE) |>
+  mutate(percent = (n/sum(n))*100) |>
+  top_n(10)
+  
 
 **Q3.** Let's drop back down to more traditional text analysis - take the top trigram from Q2 and write code to see how many times it occurs in the text column in each fiscal year. What do you think the answer produced by your code suggests? What else could you do to try and clarify the most important reasons attorneys get sanctioned?
 
 **A3.**
 
+I sort of already did that in my last code. It says that "attorney trust account" and "conduct involving dishonesty" were the top tqo so my inference is that trust was lost on behalf of the attorney because of his or her conduct involving dishonesty.
+
+
 ```{r}
+
+trigrams <- sanctioned_lawyers |>
+  unnest_tokens(trigram, text, token = "ngrams", n = 3) |>
+  separate(trigram, c("word1", "word2", "word3"), sep = " ") |>
+  filter(!word1 %in% stop_words$word) |>
+  filter(!word2 %in% stop_words$word) |>
+  filter(!word3 %in% stop_words$word) |>
+  mutate(trigram = paste(word1, word2, word3, sep = " ")) |>
+  group_by(trigram) |>
+  tally(sort=TRUE) |>
+  mutate(percent = (n/sum(n))*100) 
+  
+
+top10_trigrams <- trigrams |>
+  mutate(percent = n / sum(n) * 100) |>
+  slice_max(n, n = 10)
+
+top10_trigrams
+
+
 ```
+
+
