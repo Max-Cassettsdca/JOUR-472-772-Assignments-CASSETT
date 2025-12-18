@@ -1,0 +1,267 @@
+---
+title: "week16_recap"
+author: "Daniel Trielli"
+date: "2023-12-05"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+# Turn off scientific notation
+options(scipen=999)
+```
+
+## Loading the packages
+
+Run the codeblock below to load the packages we will need for this recap
+
+```{r}
+library(tidyverse)
+library(lubridate)
+library(janitor)
+library(tigris)
+library(tidycensus)
+library(corrr)
+library(dplyr)
+library(stringr)
+library(sf)
+```
+
+## Load Data
+
+[USAFacts compiled data on inspections on child care facilities throughout the country](https://usafacts.org/data-projects/childcare-inspections) - specifically, how many of those facilities are overdue for inspection. Let's take a look on the data they have on Maryland.
+
+First, here the data we need to load:
+
+```{r}
+childcare_inspections <- read_csv('data/childcare_inspections.csv') |> clean_names()
+childcare_inspections$fips <- as.character(childcare_inspections$fips)
+```
+
+#### **Q1** The childcare data does not have the names of the counties. Join them with the md_counties data, that can be loaded in the block below. Then inspect the dataframe you created with this join and answer this: there are two columns with county names in the new dataframe. Which one is the best to be used? (hint: it has to do with homonyms)
+
+```{r}
+# This loads the county data
+md_counties <- counties() |>  filter(STATEFP == "24")|>clean_names()
+```
+
+```{r}
+# Join the childcare data with the county data 
+
+md_childcare <- childcare_inspections |>
+  left_join(
+    md_counties |> 
+      st_drop_geometry(),   
+    by = c("fips" = "geoid")
+  )
+```
+
+##### A1:
+
+------------------------------------------------------------------------
+
+#### **Q2** Create bar chart with the percentages of overdue childcare facility inspections per county to answer (You'll need to create a column for that calculation first). What is the county with the largest percentage of facilities with overdue inspections?
+
+```{r}
+# Calculate the percentage of overdue inspections per county
+md_childcare_pct <- md_childcare |>
+  mutate(
+    pct_overdue = overdue / total * 100
+  )
+
+
+# Create the chart with ggplot
+
+ggplot(md_childcare_pct, aes(x = reorder(name, pct_overdue), y = pct_overdue)) +
+  geom_col(fill = "red") +
+  coord_flip() +
+  labs(
+    x = "County",
+    y = "Percent of facilities overdue",
+    title = "Childcare posts that are most overdue for inspections by county"
+  ) +
+  theme_classic()
+
+```
+
+##### **A2:**
+
+------------------------------------------------------------------------
+
+#### **Q3** Next, we want to see if the number of child care facilities - with overdue inspections or otherwise - is appropriate for each county. So we're going to calculate the rate of children per facility per county. To do that, you'll first need Census data to get the population of children under 5 for each county. Which county has the biggest rate of children per facility (i.e. they could use more facilities)?
+
+```{r}
+# First, grab data from the ACS. The ACS variable for children age under 5 is B06001_002 We want 2022 data.
+
+children_acs <- get_acs(
+  geography = "county",
+  variables = "B06001_002",
+  state = "MD",
+  year = 2022
+)
+
+# Rename the column name 'estimate', which has our population data, with something more useful, like 'children_pop'
+#dont need this one, i was wrong
+children_acs <- children_acs |>
+  clean_names() |>
+  rename(children_pop = estimate)
+```
+
+```{r}
+# This one took me for freaking ever
+md_childcare_children <- md_childcare_pct |>
+  mutate(fips = as.character(fips)) |>
+  left_join(
+    children_acs |>
+      select(geoid, children_pop),
+    by = c("fips" = "geoid")
+  )
+
+
+md_childcare_children <- md_childcare_children |>
+  mutate(children_per_facility = children_pop / total)
+
+
+md_childcare_children |>
+  arrange(desc(children_per_facility)) |>
+  select(name, children_pop, total, children_per_facility) |>
+  head()
+
+```
+
+##### **A3:**
+
+------------------------------------------------------------------------
+
+#### **Q4** Make a map of the results for question 3. Are there any areas of the state that are more lacking in childcare facilities?
+
+```{r}
+#I needed some help wit this one so I got some assitence from perplexity
+
+md_counties <- counties(cb = TRUE) |>
+  filter(STATEFP == "24") |>
+  clean_names()       
+
+
+md_childcare_map <- md_counties |>
+  left_join(
+    md_childcare_children |> select(fips, children_per_facility),
+    by = c("geoid" = "fips")
+  )
+
+
+ggplot(md_childcare_map) +
+  geom_sf(aes(fill = children_per_facility), color = "white", size = 0.2) +
+  scale_fill_viridis_c(
+    option = "plasma",
+    na.value = "grey90",
+    name = "Children per\nfacility"
+  ) +
+  labs(
+    title = "Children under 5 per childcare facility by county",
+    subtitle = "Higher values suggest counties that could use more facilities",
+    caption = "Sources: USAFacts childcare inspections; ACS 2018–2022 (B06001_002)"
+  ) +
+  theme_minimal() +
+  theme(
+    legend.position = "right",
+    panel.grid.major = element_blank(),
+    panel.grid.minor = element_blank()
+  )
+
+```
+
+##### **A4**:
+
+------------------------------------------------------------------------
+
+#### **Q5** Now let's explore if we can find patterns in under-served areas, particularly when it comes to median income of the population. First, join the childcare data median income data from the Census. Then, create a scatterplot and perform a cor.test(), and answer: is there is any correlation between income and rate of children per facilities? What makes you conclude that?
+
+```{r}
+# Again, grab data from the ACS. The ACS variable for median income is B19013_001. We want 2022 data again.
+income_acs <- get_acs(
+  geography = "county",
+  variables = "B19013_001",  # median household income
+  state = "MD",
+  year = 2022
+)
+
+
+```
+
+```{r}
+# Rename the column name 'estimate', which has our income data, with something more useful, like 'median_income'
+income_acs <- income_acs |>
+  rename(median_income = estimate)
+
+```
+
+```{r}
+# Join the dataframes
+md_childcare_children <- md_childcare_children |>
+  mutate(fips = as.character(fips))
+
+
+md_childcare_income <- md_childcare_children |>
+  left_join(
+    income_acs |> select(GEOID, median_income),
+    by = c("fips" = "GEOID")
+  )
+
+
+```
+
+```{r}
+# Create a scatterplot with median income and rate of children per facility
+ggplot(md_childcare_income, aes(x = median_income, y = children_per_facility)) +
+  geom_point() +
+  geom_smooth(method = "lm", se = FALSE, color = "red") +
+  labs(
+    x = "Median household income (USD)",
+    y = "Children under 5 per childcare facility",
+    title = "Median income vs. children per childcare facility by county"
+  ) +
+  theme_minimal()
+
+```
+
+```{r}
+# Create a correlation test.
+cor.test(
+  ~ median_income + children_per_facility,
+  data = md_childcare_income
+)
+
+```
+
+##### A5:
+
+------------------------------------------------------------------------
+
+#### **Q6** Finally, let's do some text analysis. We another dataset, with inspection reports from informal child care providers in the state. This dataset has an informative column of initial findings: a column that describes issues found in these providers, if any. Your goal is to create bigrams for this column and find common issues that are mentioned in these findings. And then answer: what kind of issues listed there you think are interesting? They don't have the most frequent.
+
+```{r}
+# Read the reports data
+reports <- read_csv('data/childcare-informal-provider-inspections.csv') |> clean_names()
+```
+
+```{r}
+# Create a stopword dictionary (feel free to include more words)
+stop_words <- tibble(
+  word = c("child", "children", "illegal", "care center ", "inspection", "inspections", 
+           "teacher", "care", "childcare", "harm"),
+  lexicon = "custom"
+)
+
+all_stop_words <- stop_words |>
+  bind_rows(stop_words)
+
+#couldnt remember this one for the life of me
+```
+
+```{r}
+# Unnest tokens into bigrams, removing stop words and repasting bigrams, list bigrams
+
+```
+
+##### A6:
